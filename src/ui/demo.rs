@@ -187,6 +187,15 @@ fn render(name: &str, lang: Lang, setup: impl FnOnce(&mut App)) {
 }
 
 #[test]
+fn renders_logo() {
+    let icon = super::logo::icon();
+    image::RgbaImage::from_raw(icon.width, icon.height, icon.rgba)
+        .unwrap()
+        .save(output("logo"))
+        .unwrap();
+}
+
+#[test]
 #[ignore = "needs a GPU adapter"]
 fn screenshots() {
     render("main", Lang::En, |app| {
