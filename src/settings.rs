@@ -6,6 +6,8 @@ use anyhow::Context;
 use directories::{ProjectDirs, UserDirs};
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::Lang;
+
 /// Platform-specific folders used by the app.
 pub struct Paths {
     pub config_file: PathBuf,
@@ -48,6 +50,7 @@ pub struct Settings {
     pub upload_limit_kib: u32,
     /// Start downloading as soon as a torrent is added.
     pub start_on_add: bool,
+    pub language: Lang,
 }
 
 impl Default for Settings {
@@ -60,6 +63,7 @@ impl Default for Settings {
             download_limit_kib: 0,
             upload_limit_kib: 0,
             start_on_add: true,
+            language: Lang::detect(),
         }
     }
 }
@@ -93,6 +97,7 @@ fn default_download_dir() -> PathBuf {
         .and_then(|d| d.download_dir().map(Path::to_path_buf))
         .or_else(|| UserDirs::new().map(|d| d.home_dir().join("Downloads")))
         .unwrap_or_else(|| PathBuf::from("Downloads"))
+        .join("Riptide")
 }
 
 #[cfg(test)]
