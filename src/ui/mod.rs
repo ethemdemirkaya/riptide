@@ -7,6 +7,7 @@ mod details;
 mod file_tree;
 mod icons;
 mod list;
+pub mod logo;
 mod settings_view;
 mod theme;
 mod toasts;
@@ -139,6 +140,7 @@ pub struct App {
     fatal: Option<String>,
     title: String,
     focus_search: bool,
+    logo: Option<egui::TextureHandle>,
     /// Arguments handed over by later launches (see `instance`).
     incoming: Option<std::sync::mpsc::Receiver<Vec<String>>>,
 }
@@ -201,6 +203,7 @@ impl App {
             fatal,
             title: String::new(),
             focus_search: false,
+            logo: None,
             incoming: None,
         }
     }
@@ -498,8 +501,22 @@ impl App {
     fn sidebar(&mut self, ui: &mut egui::Ui) {
         let s = self.s();
         ui.add_space(14.0);
+        let logo = self
+            .logo
+            .get_or_insert_with(|| {
+                let icon = logo::icon();
+                let image = egui::ColorImage::from_rgba_unmultiplied(
+                    [icon.width as usize, icon.height as usize],
+                    &icon.rgba,
+                );
+                ui.ctx()
+                    .load_texture("logo", image, egui::TextureOptions::LINEAR)
+            })
+            .clone();
         ui.horizontal(|ui| {
             ui.add_space(6.0);
+            ui.add(egui::Image::new(&logo).fit_to_exact_size(vec2(24.0, 24.0)));
+            ui.add_space(2.0);
             ui.label(
                 RichText::new("Riptide")
                     .font(theme::medium(19.0))

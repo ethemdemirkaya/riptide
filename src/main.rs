@@ -40,7 +40,8 @@ fn main() -> anyhow::Result<()> {
             .with_app_id("riptide")
             .with_inner_size([1120.0, 700.0])
             .with_min_inner_size([760.0, 460.0])
-            .with_drag_and_drop(true),
+            .with_drag_and_drop(true)
+            .with_icon(ui::logo::icon()),
         ..Default::default()
     };
 
