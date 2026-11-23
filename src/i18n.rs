@@ -9,7 +9,6 @@ pub enum Lang {
     Tr,
 }
 
-#[allow(dead_code)] // used by the settings dialog
 impl Lang {
     pub const ALL: [Lang; 2] = [Lang::En, Lang::Tr];
 
@@ -30,6 +29,14 @@ impl Lang {
         }
     }
 
+    /// Uppercases with the language's casing rules (Turkish `i` → `İ`).
+    pub fn upper(self, text: &str) -> String {
+        match self {
+            Lang::Tr => text.replace('i', "İ").to_uppercase(),
+            Lang::En => text.to_uppercase(),
+        }
+    }
+
     pub fn strings(self) -> &'static Strings {
         match self {
             Lang::En => &EN,
@@ -38,7 +45,6 @@ impl Lang {
     }
 }
 
-#[allow(dead_code)] // used by the settings dialog
 pub struct Strings {
     // Toolbar
     pub add_torrent: &'static str,
@@ -134,6 +140,8 @@ pub struct Strings {
     pub language: &'static str,
     pub save: &'static str,
 
+    pub eta_units: crate::format::EtaUnits,
+
     pub torrents_count: fn(usize) -> String,
     pub remove_count: fn(usize) -> String,
     pub selection_summary: fn(usize, usize, &str) -> String,
@@ -223,6 +231,8 @@ pub static EN: Strings = Strings {
     interface: "Interface",
     language: "Language",
     save: "Save",
+
+    eta_units: ["s", "m", "h", "d"],
 
     torrents_count: |n| match n {
         1 => "1 torrent".to_owned(),
@@ -320,6 +330,8 @@ pub static TR: Strings = Strings {
     language: "Dil",
     save: "Kaydet",
 
+    eta_units: [" sn", " dk", " sa", " g"],
+
     torrents_count: |n| format!("{n} torrent"),
     remove_count: |n| match n {
         1 => "Bu torrent listeden kaldırılsın mı?".to_owned(),
@@ -328,3 +340,15 @@ pub static TR: Strings = Strings {
     selection_summary: |sel, total, size| format!("{total} dosyadan {sel} seçili · {size}"),
     peers_summary: |peers, seeds| format!("{peers} eş · {seeds} kaynak"),
 };
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uppercases_turkish_dotted_i() {
+        assert_eq!(Lang::Tr.upper("İndirme"), "İNDİRME");
+        assert_eq!(Lang::Tr.upper("Eşler"), "EŞLER");
+        assert_eq!(Lang::En.upper("Peers"), "PEERS");
+    }
+}

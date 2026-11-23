@@ -132,7 +132,7 @@ impl App {
             } else {
                 theme::TEXT_FAINT
             };
-            let mut label = column_label(key, s).to_uppercase();
+            let mut label = self.settings.language.upper(column_label(key, s));
             if active {
                 label.push_str(if self.sort_desc { " ↓" } else { " ↑" });
             }
@@ -236,7 +236,10 @@ impl App {
             }
 
             // Numeric columns.
-            let eta = t.eta_secs.map(format::eta).unwrap_or_default();
+            let eta = t
+                .eta_secs
+                .map(|e| format::eta(e, s.eta_units))
+                .unwrap_or_default();
             let connected = matches!(t.status, Status::Downloading | Status::Seeding);
             let peers = if connected {
                 t.peers.to_string()
