@@ -9,12 +9,15 @@ use crate::settings::Settings;
 
 pub struct SettingsView {
     draft: Settings,
+    /// Whether magnet links already open Riptide, checked when the dialog opens.
+    handler_registered: bool,
 }
 
 impl SettingsView {
     pub fn new(current: &Settings) -> Self {
         Self {
             draft: current.clone(),
+            handler_registered: crate::platform::is_registered(),
         }
     }
 }
@@ -28,78 +31,102 @@ impl App {
         let s = view.draft.language.strings();
         let mut close = false;
         let mut save = false;
+        let mut register = false;
 
+        // Leave room for the title and buttons; the sections scroll if needed.
+        let max_height = (ctx.content_rect().height() - 200.0).max(200.0);
         let modal = egui::Modal::new(egui::Id::unique("settings")).show(ctx, |ui| {
             ui.set_width(520.0);
             ui.heading(s.settings);
             ui.add_space(18.0);
 
-            let d = &mut view.draft;
+            let registered = view.handler_registered;
+            egui::ScrollArea::vertical()
+                .max_height(max_height)
+                .auto_shrink([false, true])
+                .show(ui, |ui| {
+                    let d = &mut view.draft;
 
-            section(ui, s.downloads, |ui| {
-                row(ui, s.default_folder, |ui| {
-                    ui.add(
-                        egui::Label::new(
-                            RichText::new(d.download_dir.display().to_string())
-                                .color(theme::TEXT_DIM),
-                        )
-                        .truncate(),
-                    );
-                    let button = widgets::icon_button(ui, Icon::Folder, s.change, true);
-                    if button.clicked()
-                        && let Some(dir) = rfd::FileDialog::new()
-                            .set_directory(&d.download_dir)
-                            .pick_folder()
-                    {
-                        d.download_dir = dir;
-                    }
-                    button
-                });
-                ui.add_space(4.0);
-                widgets::checkbox(ui, &mut d.start_on_add, s.start_now);
-            });
-
-            section(ui, s.speed_limits, |ui| {
-                row(ui, s.download_limit, |ui| {
-                    limit_input(ui, &mut d.download_limit_kib, s.unlimited)
-                });
-                row(ui, s.upload_limit, |ui| {
-                    limit_input(ui, &mut d.upload_limit_kib, s.unlimited)
-                });
-            });
-
-            section(ui, s.network, |ui| {
-                row(ui, s.port, |ui| {
-                    ui.add(
-                        egui::DragValue::new(&mut d.listen_port)
-                            .range(1024..=65535)
-                            .speed(1.0),
-                    )
-                });
-                ui.add_space(4.0);
-                widgets::checkbox(ui, &mut d.upnp, s.upnp);
-                ui.add_space(2.0);
-                ui.label(
-                    RichText::new(s.restart_note)
-                        .small()
-                        .color(theme::TEXT_FAINT),
-                );
-            });
-
-            section(ui, s.interface, |ui| {
-                row(ui, s.language, |ui| {
-                    egui::ComboBox::from_id_salt("lang")
-                        .selected_text(d.language.native_name())
-                        .width(160.0)
-                        .show_ui(ui, |ui| {
-                            for lang in Lang::ALL {
-                                ui.selectable_value(&mut d.language, lang, lang.native_name());
+                    section(ui, s.downloads, |ui| {
+                        row(ui, s.default_folder, |ui| {
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(d.download_dir.display().to_string())
+                                        .color(theme::TEXT_DIM),
+                                )
+                                .truncate(),
+                            );
+                            let button = widgets::icon_button(ui, Icon::Folder, s.change, true);
+                            if button.clicked()
+                                && let Some(dir) = rfd::FileDialog::new()
+                                    .set_directory(&d.download_dir)
+                                    .pick_folder()
+                            {
+                                d.download_dir = dir;
                             }
-                        })
-                        .response
-                });
-            });
+                            button
+                        });
+                        ui.add_space(4.0);
+                        widgets::checkbox(ui, &mut d.start_on_add, s.start_now);
+                    });
 
+                    section(ui, s.speed_limits, |ui| {
+                        row(ui, s.download_limit, |ui| {
+                            limit_input(ui, &mut d.download_limit_kib, s.unlimited)
+                        });
+                        row(ui, s.upload_limit, |ui| {
+                            limit_input(ui, &mut d.upload_limit_kib, s.unlimited)
+                        });
+                    });
+
+                    section(ui, s.network, |ui| {
+                        row(ui, s.port, |ui| {
+                            ui.add(
+                                egui::DragValue::new(&mut d.listen_port)
+                                    .range(1024..=65535)
+                                    .speed(1.0),
+                            )
+                        });
+                        ui.add_space(4.0);
+                        widgets::checkbox(ui, &mut d.upnp, s.upnp);
+                        ui.add_space(2.0);
+                        ui.label(
+                            RichText::new(s.restart_note)
+                                .small()
+                                .color(theme::TEXT_FAINT),
+                        );
+                    });
+
+                    section(ui, s.magnet_handler, |ui| {
+                        if registered {
+                            widgets::status_dot(ui, theme::ACCENT, s.is_default);
+                        } else {
+                            ui.label(RichText::new(s.magnet_handler_hint).color(theme::TEXT_DIM));
+                            ui.add_space(6.0);
+                            if widgets::button(ui, None, s.make_default, false).clicked() {
+                                register = true;
+                            }
+                        }
+                    });
+
+                    section(ui, s.interface, |ui| {
+                        row(ui, s.language, |ui| {
+                            egui::ComboBox::from_id_salt("lang")
+                                .selected_text(d.language.native_name())
+                                .width(160.0)
+                                .show_ui(ui, |ui| {
+                                    for lang in Lang::ALL {
+                                        ui.selectable_value(
+                                            &mut d.language,
+                                            lang,
+                                            lang.native_name(),
+                                        );
+                                    }
+                                })
+                                .response
+                        });
+                    });
+                });
             ui.add_space(10.0);
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 if widgets::button(ui, None, s.save, true).clicked() {
@@ -113,6 +140,15 @@ impl App {
 
         if modal.should_close() {
             close = true;
+        }
+        if register {
+            match crate::platform::register_handler() {
+                Ok(()) => {
+                    view.handler_registered = crate::platform::is_registered();
+                    self.toasts.success(s.is_default, "");
+                }
+                Err(e) => self.toasts.error(s.failed, &format!("{e:#}")),
+            }
         }
         if save {
             let draft = view.draft.clone();

@@ -139,10 +139,17 @@ pub struct App {
     fatal: Option<String>,
     title: String,
     focus_search: bool,
+    /// Arguments handed over by later launches (see `instance`).
+    incoming: Option<std::sync::mpsc::Receiver<Vec<String>>>,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, paths: Paths, initial: Vec<Source>) -> Self {
+    pub fn new(
+        cc: &eframe::CreationContext<'_>,
+        paths: Paths,
+        initial: Vec<Source>,
+        listener: Option<std::net::TcpListener>,
+    ) -> Self {
         theme::apply(&cc.egui_ctx);
         let settings = Settings::load(&paths.config_file);
 
@@ -154,6 +161,10 @@ impl App {
         };
 
         let mut app = Self::with_engine(engine, fatal, paths, settings);
+        app.incoming = listener.map(|l| {
+            let ctx = cc.egui_ctx.clone();
+            crate::instance::listen(l, move || ctx.request_repaint())
+        });
         for source in initial {
             app.open_source(source);
         }
@@ -190,6 +201,7 @@ impl App {
             fatal,
             title: String::new(),
             focus_search: false,
+            incoming: None,
         }
     }
 
@@ -364,6 +376,20 @@ impl App {
     fn save_settings(&mut self) {
         if let Err(e) = self.settings.save(&self.paths.config_file) {
             tracing::warn!("could not save settings: {e:#}");
+        }
+    }
+
+    /// Torrents opened while the app was already running (e.g. a magnet link
+    /// clicked in the browser) arrive here; bring the window forward for them.
+    fn handle_handover(&mut self, ctx: &egui::Context) {
+        let Some(rx) = &self.incoming else { return };
+        let batches: Vec<Vec<String>> = rx.try_iter().collect();
+        for args in batches {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            for source in args.iter().filter_map(|a| Source::from_arg(a)) {
+                self.open_source(source);
+            }
         }
     }
 
@@ -770,6 +796,7 @@ impl eframe::App for App {
         }
 
         self.handle_events();
+        self.handle_handover(&ctx);
         self.handle_input(&ctx);
         self.refresh(false);
         self.update_title(&ctx);
