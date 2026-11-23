@@ -1,12 +1,10 @@
+![Riptide](docs/brand/readme-banner.png)
+
 <p align="center">
-  <img src="docs/screenshots/logo.png" width="88" alt="">
+  <a href="https://github.com/ethemdemirkaya/riptide/releases/latest"><b>Download for Windows</b></a>
+  &nbsp;·&nbsp; <a href="#build-from-source">Build from source</a>
+  &nbsp;·&nbsp; MIT licensed
 </p>
-
-<h1 align="center">Riptide</h1>
-
-<p align="center">A fast, quiet BitTorrent client written in Rust.</p>
-
-![Riptide](docs/screenshots/main.png)
 
 Riptide is the torrent client you don't have to think about: paste a magnet
 link, pick the files you want, done. It remembers everything between restarts,
@@ -33,14 +31,25 @@ trackers unless you want to.
 
 ## Install
 
-Download the archive for your platform from
-[Releases](https://github.com/ethemdemirkaya/riptide/releases), unpack it and
-run `riptide`.
+**Windows:** download `riptide_x.y.z_x64-setup.exe` from the
+[latest release](https://github.com/ethemdemirkaya/riptide/releases/latest)
+and run it. It installs for your user only (no administrator prompt) and adds
+a Start menu entry. To open magnet links from your browser with Riptide, use
+**Settings → Magnet links → Make default**. A portable `.zip` is attached too.
+
+Linux and macOS: build from source for now.
 
 ### Build from source
 
 ```sh
 cargo build --release
+```
+
+To build the Windows installer:
+
+```sh
+cargo install cargo-packager --locked
+cargo packager --release      # writes target/installer/*-setup.exe
 ```
 
 On Linux you need the GTK3 and xkbcommon headers
