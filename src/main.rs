@@ -29,6 +29,9 @@ fn main() -> anyhow::Result<()> {
         instance::Instance::Primary(listener) => Some(listener),
         instance::Instance::Standalone => None,
     };
+    // Show up in "Open with" for .torrent files (never changes the user's defaults).
+    std::thread::spawn(platform::register_capabilities);
+
     let initial: Vec<engine::Source> = args
         .iter()
         .filter_map(|a| engine::Source::from_arg(a))

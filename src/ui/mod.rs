@@ -140,6 +140,8 @@ pub struct App {
     fatal: Option<String>,
     title: String,
     focus_search: bool,
+    /// Set once the user closed the window and the engine is shutting down.
+    closing: Option<std::thread::JoinHandle<()>>,
     logo: Option<egui::TextureHandle>,
     /// Arguments handed over by later launches (see `instance`).
     incoming: Option<std::sync::mpsc::Receiver<Vec<String>>>,
@@ -203,6 +205,7 @@ impl App {
             fatal,
             title: String::new(),
             focus_search: false,
+            closing: None,
             logo: None,
             incoming: None,
         }
@@ -797,6 +800,32 @@ pub fn is_link(text: &str) -> bool {
 }
 
 impl eframe::App for App {
+    /// Closing hides the window at once and flushes the session in the
+    /// background; the process exits when that is done. This runs in `logic`
+    /// because eframe skips `ui` while the window is hidden.
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        if let Some(handle) = &self.closing {
+            if handle.is_finished() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            } else {
+                ctx.request_repaint_after(Duration::from_millis(50));
+            }
+            return;
+        }
+        if ctx.input(|i| i.viewport().close_requested())
+            && let Some(engine) = self.engine.take()
+        {
+            self.save_settings();
+            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+            let ctx = ctx.clone();
+            self.closing = Some(std::thread::spawn(move || {
+                engine.shutdown();
+                ctx.request_repaint();
+            }));
+        }
+    }
+
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
         if let Some(error) = self.fatal.clone() {

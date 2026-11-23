@@ -143,6 +143,7 @@ pub struct Strings {
     pub magnet_handler_hint: &'static str,
     pub make_default: &'static str,
     pub is_default: &'static str,
+    pub confirm_default: &'static str,
 
     pub eta_units: crate::format::EtaUnits,
 
@@ -239,6 +240,7 @@ pub static EN: Strings = Strings {
     magnet_handler_hint: "Open magnet links and .torrent files from your browser with Riptide.",
     make_default: "Make default",
     is_default: "Riptide opens magnet links and .torrent files",
+    confirm_default: "Pick Riptide for MAGNET and .torrent in the Windows settings that just opened",
 
     eta_units: ["s", "m", "h", "d"],
 
@@ -341,6 +343,7 @@ pub static TR: Strings = Strings {
     magnet_handler_hint: "Tarayıcıdaki magnet bağlantılarını ve .torrent dosyalarını Riptide ile açın.",
     make_default: "Varsayılan yap",
     is_default: "Magnet bağlantıları ve .torrent dosyaları Riptide ile açılıyor",
+    confirm_default: "Açılan Windows ayarlarında MAGNET ve .torrent için Riptide'ı seçin",
 
     eta_units: [" sn", " dk", " sa", " g"],
 

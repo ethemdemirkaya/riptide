@@ -145,7 +145,12 @@ impl App {
             match crate::platform::register_handler() {
                 Ok(()) => {
                     view.handler_registered = crate::platform::is_registered();
-                    self.toasts.success(s.is_default, "");
+                    let message = if view.handler_registered || !cfg!(windows) {
+                        s.is_default
+                    } else {
+                        s.confirm_default
+                    };
+                    self.toasts.success(message, "");
                 }
                 Err(e) => self.toasts.error(s.failed, &format!("{e:#}")),
             }
