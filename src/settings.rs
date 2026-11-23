@@ -97,6 +97,7 @@ fn default_download_dir() -> PathBuf {
         .and_then(|d| d.download_dir().map(Path::to_path_buf))
         .or_else(|| UserDirs::new().map(|d| d.home_dir().join("Downloads")))
         .unwrap_or_else(|| PathBuf::from("Downloads"))
+        .join("Riptide")
 }
 
 #[cfg(test)]

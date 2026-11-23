@@ -164,6 +164,21 @@ pub struct Preview {
     trackers: Vec<String>,
 }
 
+#[cfg(test)]
+impl Preview {
+    pub fn sample(name: &str, files: Vec<PreviewFile>) -> Self {
+        Self {
+            name: name.to_owned(),
+            info_hash: "0".repeat(40),
+            files,
+            sub_folder: PathBuf::new(),
+            torrent_bytes: bytes::Bytes::new(),
+            peers: Vec::new(),
+            trackers: Vec::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct PreviewFile {
     pub index: usize,

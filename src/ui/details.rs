@@ -2,8 +2,9 @@
 
 use std::collections::HashSet;
 
-use eframe::egui::{self, Align2, RichText, Sense, Stroke, TextStyle, Ui, vec2};
+use eframe::egui::{self, RichText, Sense, Stroke, TextStyle, Ui, vec2};
 
+use super::file_tree::TreeFile;
 use super::icons::Icon;
 use super::list::status_label;
 use super::{App, DetailsTab, theme, widgets};
@@ -138,100 +139,49 @@ impl App {
     }
 
     fn files_tab(&mut self, ui: &mut Ui, id: TorrentId) {
-        let s = self.s();
         let files = self.detail.files.clone();
-        let mut toggled: Option<usize> = None;
-        let can_toggle = files.len() > 1;
+        let tree_files: Vec<TreeFile<'_>> = files
+            .iter()
+            .map(|f| TreeFile {
+                path: &f.path,
+                size: f.size,
+                progress: Some(if f.size == 0 {
+                    1.0
+                } else {
+                    f.done as f32 / f.size as f32
+                }),
+                selected: f.selected,
+            })
+            .collect();
+        let selectable = files.len() > 1;
+        let height = ui.available_height();
+        let Some(toggle) = self.detail.tree.show(ui, &tree_files, selectable, height) else {
+            return;
+        };
 
-        egui::ScrollArea::vertical().auto_shrink(false).show_rows(
-            ui,
-            30.0,
-            files.len(),
-            |ui, range| {
-                ui.spacing_mut().item_spacing.y = 0.0;
-                for f in &files[range] {
-                    let (rect, resp) =
-                        ui.allocate_exact_size(vec2(ui.available_width(), 30.0), Sense::hover());
-                    if resp.hovered() {
-                        ui.painter().rect_filled(rect, 4.0, theme::SURFACE);
-                    }
-                    let mut child = ui.new_child(
-                        egui::UiBuilder::new()
-                            .max_rect(rect.shrink2(vec2(6.0, 0.0)))
-                            .layout(egui::Layout::left_to_right(egui::Align::Center)),
-                    );
-                    let mut checked = f.selected;
-                    if can_toggle {
-                        if widgets::checkbox(&mut child, &mut checked, "").changed() {
-                            toggled = Some(f.index);
-                        }
-                    } else {
-                        child.add_space(2.0);
-                    }
-
-                    let right_w = 260.0;
-                    let name_w = (child.available_width() - right_w).max(60.0);
-                    widgets::path_label(&mut child, &f.path, f.selected, name_w);
-
-                    let progress = if f.size == 0 {
-                        1.0
-                    } else {
-                        f.done as f32 / f.size as f32
-                    };
-                    let painter = child.painter().clone();
-                    let r = child.available_rect_before_wrap();
-                    let size_text = format::bytes(f.size);
-                    painter.text(
-                        r.right_center(),
-                        Align2::RIGHT_CENTER,
-                        size_text,
-                        TextStyle::Small.resolve(child.style()),
-                        theme::TEXT_DIM,
-                    );
-                    let pct_x = r.right() - 80.0;
-                    painter.text(
-                        egui::pos2(pct_x, r.center().y),
-                        Align2::RIGHT_CENTER,
-                        format!("{:.0}%", progress * 100.0),
-                        TextStyle::Small.resolve(child.style()),
-                        theme::TEXT_DIM,
-                    );
-                    let bar = egui::Rect::from_min_max(
-                        egui::pos2(r.left() + 12.0, r.center().y - 2.0),
-                        egui::pos2(pct_x - 44.0, r.center().y + 2.0),
-                    );
-                    let color = if !f.selected {
-                        theme::GREY
-                    } else if progress >= 1.0 {
-                        theme::BLUE
-                    } else {
-                        theme::ACCENT
-                    };
-                    if bar.width() > 20.0 {
-                        widgets::paint_progress(&painter, bar, progress, color);
-                    }
-                }
-            },
-        );
-
-        if let (Some(index), Some(engine)) = (toggled, &self.engine) {
-            let mut selected: HashSet<usize> = files
-                .iter()
-                .filter(|f| f.selected)
-                .map(|f| f.index)
-                .collect();
-            if !selected.remove(&index) {
+        let mut selected: HashSet<usize> = files
+            .iter()
+            .filter(|f| f.selected)
+            .map(|f| f.index)
+            .collect();
+        for pos in toggle.positions {
+            let index = files[pos].index;
+            if toggle.selected {
                 selected.insert(index);
-            }
-            // Never deselect everything: a torrent with nothing to download is just confusing.
-            if !selected.is_empty() {
-                engine.set_selected_files(id, selected.clone());
-                for f in &mut self.detail.files {
-                    f.selected = selected.contains(&f.index);
-                }
+            } else {
+                selected.remove(&index);
             }
         }
-        let _ = s;
+        // Never deselect everything: a torrent with nothing to download is just confusing.
+        if selected.is_empty() {
+            return;
+        }
+        if let Some(engine) = &self.engine {
+            engine.set_selected_files(id, selected.clone());
+        }
+        for f in &mut self.detail.files {
+            f.selected = selected.contains(&f.index);
+        }
     }
 
     fn peers_tab(&mut self, ui: &mut Ui) {

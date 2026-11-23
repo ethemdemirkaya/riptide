@@ -17,7 +17,7 @@ use eframe::egui;
 use egui_kittest::Harness;
 
 use super::{App, DetailsTab};
-use crate::engine::{FileView, PeerView, PendingView, Status, TorrentView};
+use crate::engine::{FileView, PeerView, PendingView, Preview, PreviewFile, Status, TorrentView};
 use crate::i18n::Lang;
 use crate::settings::{Paths, Settings};
 
@@ -254,6 +254,41 @@ fn screenshots() {
                 utp: i % 2 == 0,
             })
             .collect();
+    });
+    render("add", Lang::Tr, |app| {
+        let mut files = Vec::new();
+        let ost = "_extras/Soundtrack (Original Game Soundtrack) [MP3]";
+        for disc in 1..=2 {
+            for track in 1..=14 {
+                files.push(format!(
+                    "{ost}/Disc {disc}/{disc}.{track:02} Track Title Number {track}.mp3"
+                ));
+            }
+        }
+        files.push("_extras/Artbook/artbook.pdf".to_owned());
+        for part in 1..=24 {
+            files.push(format!("setup-{part:03}.bin"));
+        }
+        files.push("setup.exe".to_owned());
+        files.push("README.txt".to_owned());
+        let files = files
+            .into_iter()
+            .enumerate()
+            .map(|(index, path)| PreviewFile {
+                index,
+                size: if path.ends_with(".bin") {
+                    4 * GB
+                } else {
+                    9 * MB + index as u64 * 37_000
+                },
+                path: path.into(),
+            })
+            .collect();
+        let preview = Preview::sample("Open.World.Game-Collection", files);
+        app.add_dialog = Some(super::AddDialog::demo(
+            &app.settings,
+            std::sync::Arc::new(preview),
+        ));
     });
     render("empty", Lang::En, |app| {
         app.torrents.clear();

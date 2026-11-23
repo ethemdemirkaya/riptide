@@ -4,6 +4,7 @@ use eframe::egui::{
     self, Color32, CornerRadius, Response, Sense, Stroke, StrokeKind, Ui, Vec2, WidgetText, vec2,
 };
 
+use super::file_tree::Check;
 use super::icons::{Icon, icon_rect};
 use super::theme;
 
@@ -141,43 +142,6 @@ pub fn status_dot(ui: &mut Ui, color: Color32, label: &str) {
     ui.label(job);
 }
 
-/// A relative path with the folder part dimmed so the file name stands out.
-pub fn path_label(ui: &mut Ui, path: &std::path::Path, enabled: bool, width: f32) {
-    let font = egui::TextStyle::Body.resolve(ui.style());
-    let name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_default();
-    let dir = path
-        .parent()
-        .map(|p| p.to_string_lossy().into_owned())
-        .filter(|p| !p.is_empty());
-    let (dir_color, name_color) = if enabled {
-        (theme::TEXT_FAINT, theme::TEXT)
-    } else {
-        (theme::TEXT_FAINT, theme::TEXT_FAINT)
-    };
-    let mut job = egui::text::LayoutJob::default();
-    if let Some(dir) = dir {
-        job.append(
-            &format!("{dir}{}", std::path::MAIN_SEPARATOR),
-            0.0,
-            egui::TextFormat::simple(font.clone(), dir_color),
-        );
-    }
-    job.append(&name, 0.0, egui::TextFormat::simple(font, name_color));
-    job.wrap = egui::text::TextWrapping::truncate_at_width(width.max(20.0));
-    ui.allocate_ui_with_layout(
-        vec2(width, 20.0),
-        egui::Layout::left_to_right(egui::Align::Center),
-        |ui| {
-            ui.set_width(width);
-            ui.add(egui::Label::new(job).selectable(false))
-                .on_hover_text(path.display().to_string());
-        },
-    );
-}
-
 /// A labelled value pair for detail views.
 pub fn field(ui: &mut Ui, label: &str, value: impl Into<WidgetText>) {
     ui.label(egui::RichText::new(label).color(theme::TEXT_FAINT).small());
@@ -212,7 +176,37 @@ pub fn checkbox(ui: &mut Ui, checked: &mut bool, label: &str) -> Response {
             egui::pos2(rect.left(), rect.center().y - box_size / 2.0),
             Vec2::splat(box_size),
         );
-        if *checked {
+        let state = if *checked { Check::On } else { Check::Off };
+        paint_check(painter, b, state);
+        if resp.hovered() && !*checked {
+            painter.rect_stroke(
+                b,
+                4.0,
+                Stroke::new(1.2, theme::TEXT_DIM),
+                StrokeKind::Inside,
+            );
+        }
+        painter.galley(
+            egui::pos2(b.right() + gap, rect.center().y - galley.size().y / 2.0),
+            galley,
+            theme::TEXT,
+        );
+    }
+    resp
+}
+
+/// Paints a checkbox box in one of three states.
+pub fn paint_check(painter: &egui::Painter, b: egui::Rect, state: Check) {
+    match state {
+        Check::Off => {
+            painter.rect_stroke(
+                b,
+                4.0,
+                Stroke::new(1.2, theme::BORDER_STRONG),
+                StrokeKind::Inside,
+            );
+        }
+        Check::On => {
             painter.rect_filled(b, 4.0, theme::ACCENT);
             let c = b.center();
             painter.add(egui::Shape::line(
@@ -223,19 +217,14 @@ pub fn checkbox(ui: &mut Ui, checked: &mut bool, label: &str) -> Response {
                 ],
                 Stroke::new(1.8, theme::ACCENT_TEXT),
             ));
-        } else {
-            let border = if resp.hovered() {
-                theme::TEXT_DIM
-            } else {
-                theme::BORDER_STRONG
-            };
-            painter.rect_stroke(b, 4.0, Stroke::new(1.2, border), StrokeKind::Inside);
         }
-        painter.galley(
-            egui::pos2(b.right() + gap, rect.center().y - galley.size().y / 2.0),
-            galley,
-            theme::TEXT,
-        );
+        Check::Mixed => {
+            painter.rect_filled(b, 4.0, theme::ACCENT);
+            let c = b.center();
+            painter.line_segment(
+                [c + vec2(-4.0, 0.0), c + vec2(4.0, 0.0)],
+                Stroke::new(1.8, theme::ACCENT_TEXT),
+            );
+        }
     }
-    resp
 }
