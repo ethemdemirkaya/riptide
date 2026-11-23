@@ -32,17 +32,20 @@ pub fn speed(bytes_per_sec: u64) -> String {
     format!("{}/s", bytes(bytes_per_sec))
 }
 
+/// Unit suffixes for [`eta`]: seconds, minutes, hours, days.
+pub type EtaUnits = [&'static str; 4];
+
 /// Formats a remaining duration compactly: `45s`, `12m`, `3h 05m`, `2d 4h`.
-pub fn eta(secs: u64) -> String {
+pub fn eta(secs: u64, [s, m, h, d]: EtaUnits) -> String {
     const MIN: u64 = 60;
     const HOUR: u64 = 60 * MIN;
     const DAY: u64 = 24 * HOUR;
     match secs {
-        0..MIN => format!("{secs}s"),
-        MIN..HOUR => format!("{}m", secs / MIN),
-        HOUR..DAY => format!("{}h {:02}m", secs / HOUR, (secs % HOUR) / MIN),
+        0..MIN => format!("{secs}{s}"),
+        MIN..HOUR => format!("{}{m}", secs / MIN),
+        HOUR..DAY => format!("{}{h} {:02}{m}", secs / HOUR, (secs % HOUR) / MIN),
         _ if secs >= 100 * DAY => "∞".to_owned(),
-        _ => format!("{}d {}h", secs / DAY, (secs % DAY) / HOUR),
+        _ => format!("{}{d} {}{h}", secs / DAY, (secs % DAY) / HOUR),
     }
 }
 
@@ -91,11 +94,16 @@ mod tests {
 
     #[test]
     fn formats_eta() {
-        assert_eq!(eta(5), "5s");
-        assert_eq!(eta(125), "2m");
-        assert_eq!(eta(3 * 3600 + 5 * 60), "3h 05m");
-        assert_eq!(eta(2 * 86400 + 4 * 3600), "2d 4h");
-        assert_eq!(eta(200 * 86400), "∞");
+        const EN: EtaUnits = ["s", "m", "h", "d"];
+        assert_eq!(eta(5, EN), "5s");
+        assert_eq!(eta(125, EN), "2m");
+        assert_eq!(eta(3 * 3600 + 5 * 60, EN), "3h 05m");
+        assert_eq!(eta(2 * 86400 + 4 * 3600, EN), "2d 4h");
+        assert_eq!(eta(200 * 86400, EN), "∞");
+        assert_eq!(
+            eta(3 * 3600 + 5 * 60, [" sn", " dk", " sa", " g"]),
+            "3 sa 05 dk"
+        );
     }
 
     #[test]

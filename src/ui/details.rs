@@ -93,7 +93,7 @@ impl App {
                         ui.vertical(|ui| {
                             let eta = t
                                 .eta_secs
-                                .map(format::eta)
+                                .map(|e| format::eta(e, s.eta_units))
                                 .unwrap_or_else(|| "—".to_owned());
                             widgets::field(ui, s.eta, eta)
                         });
@@ -186,6 +186,7 @@ impl App {
 
     fn peers_tab(&mut self, ui: &mut Ui) {
         let s = self.s();
+        let lang = self.settings.language;
         let peers = &self.detail.peers;
         let status = self
             .focused()
@@ -205,14 +206,15 @@ impl App {
         egui::ScrollArea::vertical()
             .auto_shrink(false)
             .show(ui, |ui| {
+                ui.spacing_mut().interact_size.y = 18.0;
                 egui::Grid::new("peers")
                     .num_columns(4)
                     .striped(false)
-                    .spacing(vec2(28.0, 8.0))
+                    .spacing(vec2(28.0, 10.0))
                     .show(ui, |ui| {
                         for c in cols {
                             ui.label(
-                                RichText::new(c.to_uppercase())
+                                RichText::new(lang.upper(c))
                                     .small()
                                     .color(theme::TEXT_FAINT),
                             );
