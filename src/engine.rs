@@ -16,8 +16,9 @@ use std::time::{Duration, Instant};
 use anyhow::Context;
 use librqbit::api::TorrentIdOrHash;
 use librqbit::{
-    AddTorrent, AddTorrentOptions, AddTorrentResponse, ListenerMode, ListenerOptions, Magnet,
-    ManagedTorrent, Session, SessionOptions, SessionPersistenceConfig, TorrentStatsState,
+    AddTorrent, AddTorrentOptions, AddTorrentResponse, ConnectionOptions, ListenerMode,
+    ListenerOptions, Magnet, ManagedTorrent, PeerConnectionOptions, Session, SessionOptions,
+    SessionPersistenceConfig, TorrentStatsState,
 };
 
 use crate::settings::Settings;
@@ -267,6 +268,31 @@ impl Engine {
                 upload_bps: kib_to_bps(settings.upload_limit_kib),
             },
             client_name_and_version: Some(format!("Riptide {}", env!("CARGO_PKG_VERSION"))),
+            // More simultaneous peers than librqbit's default of 128: popular
+            // torrents have hundreds of seeds and each adds bandwidth.
+            peer_limit: Some(settings.max_peers.max(16)),
+            connect: Some(ConnectionOptions {
+                peer_opts: Some(PeerConnectionOptions {
+                    // Give up on unreachable peers after 4 s instead of 10 s, so
+                    // the swarm is explored faster right after a torrent starts.
+                    connect_timeout: Some(Duration::from_secs(
+                        settings.connect_timeout_secs.max(1),
+                    )),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            trackers: if settings.extra_trackers {
+                crate::trackers::PUBLIC
+                    .iter()
+                    .filter_map(|t| t.parse().ok())
+                    .collect()
+            } else {
+                Default::default()
+            },
+            // Check more torrents in parallel at startup so resumed downloads
+            // get going sooner.
+            concurrent_init_limit: Some(6),
             ..Default::default()
         };
 
@@ -719,5 +745,85 @@ mod tests {
         );
         engine.shutdown();
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Compares download speed with librqbit's defaults against Riptide's
+    /// tuning on the same torrent. Needs network; prints a small report.
+    ///
+    /// ```sh
+    /// RIPTIDE_BENCH="magnet:?xt=urn:btih:..." cargo test --release speed_benchmark -- --ignored --nocapture
+    /// ```
+    #[test]
+    #[ignore = "needs network, takes a few minutes"]
+    fn speed_benchmark() {
+        let Ok(source) = std::env::var("RIPTIDE_BENCH") else {
+            eprintln!("set RIPTIDE_BENCH to a magnet link or .torrent URL");
+            return;
+        };
+        let secs: u64 = std::env::var("RIPTIDE_BENCH_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(45);
+
+        let baseline = Settings {
+            max_peers: 128,
+            extra_trackers: false,
+            connect_timeout_secs: 10,
+            ..Settings::default()
+        };
+        let tuned = Settings::default();
+
+        for (label, base) in [("librqbit defaults", baseline), ("riptide tuning", tuned)] {
+            let root = std::env::temp_dir().join(format!("riptide-bench-{}", std::process::id()));
+            let _ = std::fs::remove_dir_all(&root);
+            let settings = Settings {
+                download_dir: root.join("dl"),
+                listen_port: 0,
+                upnp: false,
+                ..base
+            };
+            let engine = Engine::start(&settings, root.join("session"), Arc::new(|| {})).unwrap();
+
+            let started = Instant::now();
+            let request = engine.request_preview(Source::Url(source.clone()));
+            let preview = wait_for(&engine, 300, |e| match e.poll_event() {
+                Some(Event::Preview { request: r, result }) if r == request => {
+                    Some(result.unwrap())
+                }
+                _ => None,
+            });
+            let metadata = started.elapsed();
+            engine.add(AddRequest {
+                source: Source::Url(source.clone()),
+                preview: Some(preview),
+                folder: None,
+                only_files: None,
+                paused: false,
+            });
+            wait_for(&engine, 60, |e| e.torrents().into_iter().next().map(drop));
+
+            let t0 = Instant::now();
+            let mut peak_peers = 0;
+            let mut first = None;
+            while t0.elapsed() < Duration::from_secs(secs) {
+                if let Some(t) = engine.torrents().into_iter().next() {
+                    peak_peers = peak_peers.max(t.peers);
+                    if first.is_none() && t.status == Status::Downloading {
+                        first = Some(t.done_bytes);
+                    }
+                }
+                std::thread::sleep(Duration::from_millis(500));
+            }
+            let t = engine.torrents().into_iter().next().unwrap();
+            let got = t.done_bytes.saturating_sub(first.unwrap_or(0));
+            println!(
+                "{label:>18}: metadata {:>5.1}s | {:>8} in {secs}s = {:>10} avg | peak peers {peak_peers}",
+                metadata.as_secs_f32(),
+                crate::format::bytes(got),
+                crate::format::speed(got / secs),
+            );
+            engine.shutdown();
+            let _ = std::fs::remove_dir_all(&root);
+        }
     }
 }

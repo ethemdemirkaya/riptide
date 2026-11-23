@@ -50,6 +50,12 @@ pub struct Settings {
     pub upload_limit_kib: u32,
     /// Start downloading as soon as a torrent is added.
     pub start_on_add: bool,
+    /// Maximum connected peers per torrent.
+    pub max_peers: usize,
+    /// Announce every torrent to a list of large public trackers too.
+    pub extra_trackers: bool,
+    /// Seconds to wait for a peer to accept a connection. Not shown in the UI.
+    pub connect_timeout_secs: u64,
     pub language: Lang,
 }
 
@@ -63,6 +69,9 @@ impl Default for Settings {
             download_limit_kib: 0,
             upload_limit_kib: 0,
             start_on_add: true,
+            max_peers: 250,
+            extra_trackers: true,
+            connect_timeout_secs: 4,
             language: Lang::detect(),
         }
     }
