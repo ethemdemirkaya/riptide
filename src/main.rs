@@ -6,6 +6,7 @@ mod i18n;
 mod instance;
 mod platform;
 mod settings;
+mod trackers;
 mod ui;
 
 use eframe::egui;

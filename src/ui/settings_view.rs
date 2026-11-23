@@ -89,6 +89,16 @@ impl App {
                         });
                         ui.add_space(4.0);
                         widgets::checkbox(ui, &mut d.upnp, s.upnp);
+                        ui.add_space(4.0);
+                        widgets::checkbox(ui, &mut d.extra_trackers, s.extra_trackers);
+                        ui.add_space(8.0);
+                        row(ui, s.max_peers, |ui| {
+                            ui.add(
+                                egui::DragValue::new(&mut d.max_peers)
+                                    .range(16..=1000)
+                                    .speed(4.0),
+                            )
+                        });
                         ui.add_space(2.0);
                         ui.label(
                             RichText::new(s.restart_note)
