@@ -290,6 +290,9 @@ fn screenshots() {
             std::sync::Arc::new(preview),
         ));
     });
+    render("settings", Lang::En, |app| {
+        app.settings_view = Some(super::SettingsView::new(&app.settings));
+    });
     render("empty", Lang::En, |app| {
         app.torrents.clear();
         app.pending.clear();

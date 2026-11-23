@@ -7,6 +7,7 @@ mod details;
 mod file_tree;
 mod icons;
 mod list;
+mod settings_view;
 mod theme;
 mod toasts;
 mod widgets;
@@ -28,6 +29,7 @@ use crate::settings::{Paths, Settings};
 
 use add_dialog::AddDialog;
 use icons::Icon;
+use settings_view::SettingsView;
 use toasts::Toasts;
 
 /// How often torrent stats are re-read while the window is idle.
@@ -132,6 +134,7 @@ pub struct App {
 
     add_dialog: Option<AddDialog>,
     remove_dialog: Option<RemoveDialog>,
+    settings_view: Option<SettingsView>,
     toasts: Toasts,
     fatal: Option<String>,
     title: String,
@@ -182,6 +185,7 @@ impl App {
             detail: DetailCache::default(),
             add_dialog: None,
             remove_dialog: None,
+            settings_view: None,
             toasts: Toasts::default(),
             fatal,
             title: String::new(),
@@ -364,7 +368,7 @@ impl App {
     }
 
     fn any_dialog_open(&self) -> bool {
-        self.add_dialog.is_some() || self.remove_dialog.is_some()
+        self.add_dialog.is_some() || self.remove_dialog.is_some() || self.settings_view.is_some()
     }
 
     fn handle_input(&mut self, ctx: &egui::Context) {
@@ -527,6 +531,13 @@ impl App {
             }
             ui.add_space(2.0);
         }
+
+        ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+            ui.add_space(12.0);
+            if widgets::button(ui, Some(Icon::Settings), s.settings, false).clicked() {
+                self.settings_view = Some(SettingsView::new(&self.settings));
+            }
+        });
     }
 
     fn toolbar(&mut self, ui: &mut egui::Ui) {
@@ -819,6 +830,9 @@ impl eframe::App for App {
             self.add_modal(&ctx);
         }
         self.remove_modal(&ctx);
+        if self.settings_view.is_some() {
+            self.settings_modal(&ctx);
+        }
         self.drop_overlay(&ctx);
         self.toasts.show(&ctx);
 

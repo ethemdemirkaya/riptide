@@ -9,7 +9,6 @@ pub enum Lang {
     Tr,
 }
 
-#[allow(dead_code)] // used by the settings dialog
 impl Lang {
     pub const ALL: [Lang; 2] = [Lang::En, Lang::Tr];
 
@@ -38,7 +37,6 @@ impl Lang {
     }
 }
 
-#[allow(dead_code)] // used by the settings dialog
 pub struct Strings {
     // Toolbar
     pub add_torrent: &'static str,

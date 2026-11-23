@@ -10,7 +10,6 @@ pub enum Icon {
     Pause,
     Trash,
     Folder,
-    #[allow(dead_code)] // used by the settings dialog
     Settings,
     Search,
     ArrowDown,
