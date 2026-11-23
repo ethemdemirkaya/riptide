@@ -1,6 +1,6 @@
 [package]
 name = "riptide"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "A fast, minimal BitTorrent client with a clean dark interface."
 license = "MIT"
@@ -66,3 +66,7 @@ main = true
 [package.metadata.packager.nsis]
 installer-mode = "currentUser"
 installer-icon = "assets/logo/riptide.ico"
+template = "assets/installer/installer.nsi"
+sidebar-image = "assets/installer/sidebar.bmp"
+header-image = "assets/installer/header.bmp"
+languages = ["English", "Turkish"]

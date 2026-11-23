@@ -56,6 +56,10 @@ cargo install cargo-packager --locked
 cargo packager --release      # writes target/installer/*-setup.exe
 ```
 
+The installer uses a customized NSIS template (`assets/installer/installer.nsi`)
+and artwork rendered by `python scripts/installer_art.py`. It installs to
+`%LOCALAPPDATA%\Programs\Riptide`.
+
 On Linux you need the GTK3 and xkbcommon headers
 (`libgtk-3-dev libxkbcommon-dev` on Debian/Ubuntu).
 
