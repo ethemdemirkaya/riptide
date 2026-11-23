@@ -427,6 +427,7 @@ impl Engine {
         });
     }
 
+    #[allow(dead_code)] // used by the settings dialog
     /// Applies global speed limits immediately. `0` means unlimited.
     pub fn set_limits(&self, download_kib: u32, upload_kib: u32) {
         let limits = &self.session.ratelimits;
