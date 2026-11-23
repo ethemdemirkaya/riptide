@@ -503,15 +503,7 @@ impl App {
         ui.add_space(14.0);
         let logo = self
             .logo
-            .get_or_insert_with(|| {
-                let icon = logo::icon();
-                let image = egui::ColorImage::from_rgba_unmultiplied(
-                    [icon.width as usize, icon.height as usize],
-                    &icon.rgba,
-                );
-                ui.ctx()
-                    .load_texture("logo", image, egui::TextureOptions::LINEAR)
-            })
+            .get_or_insert_with(|| logo::texture(ui.ctx()))
             .clone();
         ui.horizontal(|ui| {
             ui.add_space(6.0);

@@ -14,6 +14,7 @@ anyhow = "1.0.105"
 bytes = "1"
 directories = "6"
 eframe = "0.37"
+image = { version = "0.25", default-features = false, features = ["png"] }
 librqbit = { version = "9.1.0", default-features = false, features = ["rust-tls"] }
 rfd = "0.18"
 serde = { version = "1", features = ["derive"] }
@@ -35,4 +36,28 @@ opt-level = 2
 
 [dev-dependencies]
 egui_kittest = { version = "0.37", features = ["wgpu", "snapshot", "eframe"] }
-image = { version = "0.25", default-features = false, features = ["png"] }
+
+[build-dependencies]
+winresource = "0.1"
+
+# Windows installer, built with `cargo packager --release` (see README).
+[package.metadata.packager]
+product-name = "Riptide"
+identifier = "dev.riptide.app"
+publisher = "Ethem Demirkaya"
+homepage = "https://github.com/ethemdemirkaya/riptide"
+description = "A fast, quiet BitTorrent client written in Rust."
+category = "Utility"
+formats = ["nsis"]
+out-dir = "target/installer"
+before-packaging-command = "cargo build --release"
+icons = ["assets/logo/icon-512.png", "assets/logo/riptide.ico"]
+licenseFile = "LICENSE"
+
+[[package.metadata.packager.binaries]]
+path = "riptide"
+main = true
+
+[package.metadata.packager.nsis]
+installer-mode = "currentUser"
+installer-icon = "assets/logo/riptide.ico"
