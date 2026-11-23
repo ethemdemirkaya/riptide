@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use eframe::egui::{self, RichText, Sense, Ui, vec2};
+use eframe::egui::{self, RichText, Ui, vec2};
 
+use super::file_tree::{FileTree, TreeFile};
 use super::icons::Icon;
 use super::{App, is_link, theme, widgets};
 use crate::engine::{AddRequest, Engine, Preview, Source};
@@ -25,6 +26,7 @@ pub struct AddDialog {
     start: bool,
     input_error: bool,
     focus_input: bool,
+    tree: FileTree,
 }
 
 impl AddDialog {
@@ -41,6 +43,7 @@ impl AddDialog {
             start: settings.start_on_add,
             input_error: false,
             focus_input: true,
+            tree: FileTree::default(),
         }
     }
 
@@ -58,10 +61,23 @@ impl AddDialog {
         self.preview = None;
         self.preview_error = None;
         self.selected.clear();
+        self.tree = FileTree::default();
         self.input_error = false;
         self.started = Instant::now();
         self.request = Some(engine.request_preview(source.clone()));
         self.source = Some(source);
+    }
+
+    #[cfg(test)]
+    pub fn demo(settings: &Settings, preview: Arc<Preview>) -> Self {
+        let mut d = Self::empty(settings);
+        d.focus_input = false;
+        d.input = "magnet:?xt=urn:btih:…".to_owned();
+        d.source = Some(Source::Url(d.input.clone()));
+        d.selected = vec![true; preview.files.len()];
+        d.selected[1] = false;
+        d.preview = Some(preview);
+        d
     }
 
     pub fn is_resolving(&self) -> bool {
@@ -123,7 +139,7 @@ impl App {
             .as_ref()
             .and_then(|d| d.preview.as_ref())
             .is_some_and(|p| self.torrents.iter().any(|t| t.info_hash == p.info_hash));
-        let Some(engine) = &self.engine else { return };
+        let engine = self.engine.as_ref();
         let Some(dialog) = &mut self.add_dialog else {
             return;
         };
@@ -152,7 +168,9 @@ impl App {
                     if text.is_empty() {
                         dialog.input_error = false;
                     } else if is_link(&text) {
-                        dialog.set_source(engine, Source::Url(text));
+                        if let Some(engine) = engine {
+                            dialog.set_source(engine, Source::Url(text));
+                        }
                     } else {
                         dialog.input_error = true;
                     }
@@ -165,7 +183,9 @@ impl App {
                     match Source::from_path(&path) {
                         Ok(source) => {
                             dialog.input = path.display().to_string();
-                            dialog.set_source(engine, source);
+                            if let Some(engine) = engine {
+                                dialog.set_source(engine, source);
+                            }
                         }
                         Err(e) => dialog.preview_error = Some(format!("{e:#}")),
                     }
@@ -236,7 +256,7 @@ impl App {
             close = true;
         }
         if submit {
-            if let Some(req) = dialog.request() {
+            if let (Some(req), Some(engine)) = (dialog.request(), engine) {
                 engine.add(req);
             }
             close = true;
@@ -334,39 +354,22 @@ impl App {
             .corner_radius(theme::RADIUS)
             .inner_margin(egui::Margin::same(6))
             .show(ui, |ui| {
-                egui::ScrollArea::vertical()
-                    .max_height(220.0)
-                    .auto_shrink([false, true])
-                    .show(ui, |ui| {
-                        ui.spacing_mut().item_spacing.y = 0.0;
-                        for (i, f) in p.files.iter().enumerate() {
-                            let (rect, resp) = ui.allocate_exact_size(
-                                vec2(ui.available_width(), 28.0),
-                                Sense::click(),
-                            );
-                            if resp.hovered() {
-                                ui.painter().rect_filled(rect, 4.0, theme::SURFACE_HOVER);
-                            }
-                            if resp.clicked() {
-                                dialog.selected[i] = !dialog.selected[i];
-                            }
-                            let mut child = ui.new_child(
-                                egui::UiBuilder::new()
-                                    .max_rect(rect.shrink2(vec2(6.0, 0.0)))
-                                    .layout(egui::Layout::left_to_right(egui::Align::Center)),
-                            );
-                            widgets::checkbox(&mut child, &mut dialog.selected[i], "");
-                            let size = format::bytes(f.size);
-                            let name_w = child.available_width() - 80.0;
-                            widgets::path_label(&mut child, &f.path, dialog.selected[i], name_w);
-                            child.with_layout(
-                                egui::Layout::right_to_left(egui::Align::Center),
-                                |ui| {
-                                    ui.label(RichText::new(size).small().color(theme::TEXT_DIM));
-                                },
-                            );
-                        }
-                    });
+                let files: Vec<TreeFile<'_>> = p
+                    .files
+                    .iter()
+                    .zip(&dialog.selected)
+                    .map(|(f, sel)| TreeFile {
+                        path: &f.path,
+                        size: f.size,
+                        progress: None,
+                        selected: *sel,
+                    })
+                    .collect();
+                if let Some(t) = dialog.tree.show(ui, &files, true, 260.0) {
+                    for pos in t.positions {
+                        dialog.selected[pos] = t.selected;
+                    }
+                }
             });
     }
 }

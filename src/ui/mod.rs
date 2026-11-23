@@ -4,6 +4,7 @@ mod add_dialog;
 #[cfg(test)]
 mod demo;
 mod details;
+mod file_tree;
 mod icons;
 mod list;
 mod theme;
@@ -105,6 +106,7 @@ struct DetailCache {
     files: Vec<FileView>,
     peers: Vec<PeerView>,
     refreshed: Option<Instant>,
+    tree: file_tree::FileTree,
 }
 
 pub struct App {
@@ -238,6 +240,9 @@ impl App {
             .refreshed
             .is_none_or(|t| t.elapsed() >= Duration::from_secs(1));
         if focused != self.detail.id || stale {
+            if focused != self.detail.id {
+                self.detail.tree = Default::default();
+            }
             self.detail.id = focused;
             self.detail.refreshed = Some(Instant::now());
             if let Some(id) = focused {
