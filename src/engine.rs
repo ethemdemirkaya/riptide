@@ -125,6 +125,15 @@ impl Source {
         Ok(Self::File { name, bytes })
     }
 
+    /// Interprets a command-line argument: a link, or a path to a .torrent file.
+    pub fn from_arg(arg: &str) -> Option<Self> {
+        if crate::ui::is_link(arg) {
+            Some(Self::Url(arg.trim().to_owned()))
+        } else {
+            Self::from_path(Path::new(arg)).ok()
+        }
+    }
+
     /// A best-effort name to show before metadata is known.
     pub fn display_name(&self) -> String {
         match self {

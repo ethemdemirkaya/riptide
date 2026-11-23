@@ -4538,6 +4538,7 @@ dependencies = [
  "directories",
  "eframe",
  "egui_kittest",
+ "image",
  "librqbit",
  "rfd",
  "serde",

@@ -139,6 +139,10 @@ pub struct Strings {
     pub interface: &'static str,
     pub language: &'static str,
     pub save: &'static str,
+    pub magnet_handler: &'static str,
+    pub magnet_handler_hint: &'static str,
+    pub make_default: &'static str,
+    pub is_default: &'static str,
 
     pub eta_units: crate::format::EtaUnits,
 
@@ -231,6 +235,10 @@ pub static EN: Strings = Strings {
     interface: "Interface",
     language: "Language",
     save: "Save",
+    magnet_handler: "Magnet links",
+    magnet_handler_hint: "Open magnet links and .torrent files from your browser with Riptide.",
+    make_default: "Make default",
+    is_default: "Riptide opens magnet links and .torrent files",
 
     eta_units: ["s", "m", "h", "d"],
 
@@ -329,6 +337,10 @@ pub static TR: Strings = Strings {
     interface: "Arayüz",
     language: "Dil",
     save: "Kaydet",
+    magnet_handler: "Magnet bağlantıları",
+    magnet_handler_hint: "Tarayıcıdaki magnet bağlantılarını ve .torrent dosyalarını Riptide ile açın.",
+    make_default: "Varsayılan yap",
+    is_default: "Magnet bağlantıları ve .torrent dosyaları Riptide ile açılıyor",
 
     eta_units: [" sn", " dk", " sa", " g"],
 
