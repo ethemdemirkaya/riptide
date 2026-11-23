@@ -687,7 +687,7 @@ impl App {
         };
         let mut close = false;
         let mut confirm = false;
-        let modal = egui::Modal::new(egui::Id::unique("remove")).show(ctx, |ui| {
+        let modal = widgets::modal(ctx, "remove").show(ctx, |ui| {
             ui.set_width(380.0);
             ui.heading(s.remove_title);
             ui.add_space(10.0);
@@ -695,7 +695,7 @@ impl App {
             ui.add_space(14.0);
             widgets::checkbox(ui, &mut dialog.delete_files, s.also_delete_files);
             ui.add_space(20.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            widgets::footer(ui, |ui| {
                 let label = if dialog.delete_files {
                     s.remove_with_files
                 } else {

@@ -77,11 +77,17 @@ pub fn button_enabled(
         let pressed = enabled && resp.is_pointer_button_down_on();
         let (fill, stroke) = if primary {
             let fill = match (enabled, hovered) {
-                (false, _) => theme::SURFACE,
+                (false, _) => theme::SURFACE_HOVER,
                 (true, true) => theme::ACCENT_HOVER,
                 (true, false) => theme::ACCENT,
             };
-            (fill, Stroke::NONE)
+            // A disabled primary button still reads as a button, just inert.
+            let stroke = if enabled {
+                Stroke::NONE
+            } else {
+                Stroke::new(1.0, theme::BORDER)
+            };
+            (fill, stroke)
         } else {
             let fill = if pressed {
                 theme::SURFACE_ACTIVE
@@ -227,4 +233,52 @@ pub fn paint_check(painter: &egui::Painter, b: egui::Rect, state: Check) {
             );
         }
     }
+}
+
+/// The right-aligned button row at the bottom of a dialog. Its height is fixed,
+/// so a dialog with little content stays compact instead of stretching.
+pub fn footer<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
+    ui.allocate_ui_with_layout(
+        vec2(ui.available_width(), 32.0),
+        egui::Layout::right_to_left(egui::Align::Center),
+        add,
+    )
+    .inner
+}
+
+/// A modal dialog with the app's padding and surface.
+pub fn modal(ctx: &egui::Context, id: &str) -> egui::Modal {
+    egui::Modal::new(egui::Id::unique(id)).frame(
+        egui::Frame::new()
+            .fill(theme::SURFACE)
+            .stroke(Stroke::new(1.0, theme::BORDER))
+            .corner_radius(10)
+            .inner_margin(egui::Margin::same(24))
+            .shadow(ctx.global_style().visuals.window_shadow),
+    )
+}
+
+/// A read-only path field that fills the remaining width of a row.
+pub fn path_box(ui: &mut Ui, path: &std::path::Path) {
+    let height = 34.0;
+    let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::hover());
+    let painter = ui.painter_at(rect);
+    painter.rect(
+        rect,
+        theme::RADIUS,
+        theme::INPUT_BG,
+        Stroke::new(1.0, theme::BORDER),
+        StrokeKind::Inside,
+    );
+    let text = path.display().to_string();
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let mut job = egui::text::LayoutJob::simple_singleline(text.clone(), font, theme::TEXT_DIM);
+    job.wrap = egui::text::TextWrapping::truncate_at_width(rect.width() - 24.0);
+    let galley = ui.fonts_mut(|f| f.layout_job(job));
+    painter.galley(
+        egui::pos2(rect.left() + 12.0, rect.center().y - galley.size().y / 2.0),
+        galley,
+        theme::TEXT_DIM,
+    );
+    resp.on_hover_text(text);
 }

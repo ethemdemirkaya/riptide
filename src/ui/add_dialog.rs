@@ -147,7 +147,7 @@ impl App {
         let mut close = false;
         let mut submit = false;
 
-        let modal = egui::Modal::new(egui::Id::unique("add")).show(ctx, |ui| {
+        let modal = widgets::modal(ctx, "add").show(ctx, |ui| {
             ui.set_width(560.0);
             ui.heading(s.add_torrent);
             ui.add_space(14.0);
@@ -207,36 +207,26 @@ impl App {
             ui.add_space(16.0);
             widgets::section_title(ui, s.save_to);
             ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                let frame = egui::Frame::new()
-                    .fill(theme::INPUT_BG)
-                    .stroke(egui::Stroke::new(1.0, theme::BORDER))
-                    .corner_radius(theme::RADIUS)
-                    .inner_margin(egui::Margin::symmetric(10, 7));
-                frame.show(ui, |ui| {
-                    ui.set_width(ui.available_width() - 100.0);
-                    ui.add(
-                        egui::Label::new(
-                            RichText::new(dialog.folder.display().to_string())
-                                .color(theme::TEXT_DIM),
-                        )
-                        .truncate(),
-                    );
-                });
-                if widgets::button(ui, Some(Icon::Folder), s.change, false).clicked()
-                    && let Some(dir) = rfd::FileDialog::new()
-                        .set_directory(&dialog.folder)
-                        .pick_folder()
-                {
-                    dialog.folder = dir;
-                }
-            });
+            ui.allocate_ui_with_layout(
+                vec2(ui.available_width(), 34.0),
+                egui::Layout::right_to_left(egui::Align::Center),
+                |ui| {
+                    if widgets::button(ui, Some(Icon::Folder), s.change, false).clicked()
+                        && let Some(dir) = rfd::FileDialog::new()
+                            .set_directory(&dialog.folder)
+                            .pick_folder()
+                    {
+                        dialog.folder = dir;
+                    }
+                    widgets::path_box(ui, &dialog.folder);
+                },
+            );
 
             ui.add_space(14.0);
             widgets::checkbox(ui, &mut dialog.start, s.start_now);
 
             ui.add_space(20.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            widgets::footer(ui, |ui| {
                 let (count, _) = dialog.selection();
                 let ok = dialog.source.is_some()
                     && (dialog.preview.is_none() || count > 0)
