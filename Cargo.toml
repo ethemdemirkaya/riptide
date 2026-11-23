@@ -40,6 +40,10 @@ egui_kittest = { version = "0.37", features = ["wgpu", "snapshot", "eframe"] }
 [build-dependencies]
 winresource = "0.1"
 
+[target."cfg(windows)".dependencies]
+windows-sys = { version = "0.59", features = ["Win32_UI_Shell"] }
+winreg = "0.55"
+
 # Windows installer, built with `cargo packager --release` (see README).
 [package.metadata.packager]
 product-name = "Riptide"

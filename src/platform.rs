@@ -22,6 +22,22 @@ pub fn register_handler() -> anyhow::Result<()> {
     imp::register(&exe)
 }
 
+/// Registers Riptide as an *available* handler without changing defaults.
+/// Called on startup so the app appears in Windows' "Open with" list.
+pub fn register_capabilities() {
+    #[cfg(target_os = "windows")]
+    if let Ok(exe) = std::env::current_exe()
+        && let Err(e) = imp::register_capabilities(&exe)
+    {
+        tracing::warn!("could not register file associations: {e}");
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn open_uri(uri: &str) -> std::io::Result<()> {
+    Command::new("explorer").arg(uri).spawn().map(drop)
+}
+
 /// Whether magnet links currently open this executable.
 pub fn is_registered() -> bool {
     std::env::current_exe().is_ok_and(|exe| imp::is_registered(&exe))
@@ -29,61 +45,140 @@ pub fn is_registered() -> bool {
 
 #[cfg(target_os = "windows")]
 mod imp {
-    use std::os::windows::process::CommandExt;
+    //! Windows keeps associations in three places:
+    //! - ProgIDs under `HKCU\Software\Classes` describe how to open something;
+    //! - `OpenWithProgids` / `RegisteredApplications` make the app *eligible*
+    //!   (it shows up in "Open with" and in Settings > Default apps);
+    //! - `UserChoice` records what the user actually picked. Apps cannot write
+    //!   it, so "make default" ends by opening the Default apps page.
+
     use std::path::Path;
-    use std::process::Command;
 
-    use anyhow::{Context, bail};
+    use winreg::RegKey;
+    use winreg::enums::HKEY_CURRENT_USER;
 
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    const CLASSES: &str = r"HKCU\Software\Classes";
+    const TORRENT_PROGID: &str = "Riptide.Torrent";
+    const MAGNET_PROGID: &str = "Riptide.Magnet";
+    const CAPABILITIES: &str = r"Software\Riptide\Capabilities";
 
-    fn reg(args: &[&str]) -> anyhow::Result<String> {
-        let out = Command::new("reg")
-            .args(args)
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()
-            .context("could not run reg.exe")?;
-        if !out.status.success() {
-            bail!("{}", String::from_utf8_lossy(&out.stderr).trim());
-        }
-        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    fn set(root: &RegKey, path: &str, name: &str, value: &str) -> std::io::Result<()> {
+        let (key, _) = root.create_subkey(path)?;
+        key.set_value(name, &value)
     }
 
-    fn set(key: &str, name: Option<&str>, value: &str) -> anyhow::Result<()> {
-        let key = format!(r"{CLASSES}\{key}");
-        let mut args = vec!["add", key.as_str()];
-        match name {
-            Some(n) => args.extend(["/v", n]),
-            None => args.push("/ve"),
+    fn open_command(exe: &Path) -> String {
+        format!("\"{}\" \"%1\"", exe.display())
+    }
+
+    /// Makes Riptide eligible for .torrent files and magnet links without
+    /// taking over anything the user already chose. Safe to run on every launch;
+    /// it also keeps the executable path current if the app moved.
+    pub fn register_capabilities(exe: &Path) -> std::io::Result<()> {
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let (classes, _) = hkcu.create_subkey(r"Software\Classes")?;
+        let open = open_command(exe);
+        let icon = format!("\"{}\",0", exe.display());
+
+        for (progid, label) in [
+            (TORRENT_PROGID, "Torrent file"),
+            (MAGNET_PROGID, "Magnet link"),
+        ] {
+            set(&classes, progid, "", label)?;
+            set(&classes, &format!(r"{progid}\DefaultIcon"), "", &icon)?;
+            set(
+                &classes,
+                &format!(r"{progid}\shell\open\command"),
+                "",
+                &open,
+            )?;
         }
-        args.extend(["/d", value, "/f"]);
-        reg(&args).map(drop)
+        set(&classes, MAGNET_PROGID, "URL Protocol", "")?;
+        set(&classes, r".torrent\OpenWithProgids", TORRENT_PROGID, "")?;
+
+        let app = r"Applications\riptide.exe";
+        set(&classes, app, "FriendlyAppName", "Riptide")?;
+        set(&classes, &format!(r"{app}\SupportedTypes"), ".torrent", "")?;
+        set(&classes, &format!(r"{app}\shell\open\command"), "", &open)?;
+
+        set(&hkcu, CAPABILITIES, "ApplicationName", "Riptide")?;
+        set(&hkcu, CAPABILITIES, "ApplicationIcon", &icon)?;
+        set(
+            &hkcu,
+            CAPABILITIES,
+            "ApplicationDescription",
+            "A fast, quiet BitTorrent client",
+        )?;
+        set(
+            &hkcu,
+            &format!(r"{CAPABILITIES}\FileAssociations"),
+            ".torrent",
+            TORRENT_PROGID,
+        )?;
+        set(
+            &hkcu,
+            &format!(r"{CAPABILITIES}\URLAssociations"),
+            "magnet",
+            MAGNET_PROGID,
+        )?;
+        set(
+            &hkcu,
+            r"Software\RegisteredApplications",
+            "Riptide",
+            CAPABILITIES,
+        )?;
+        notify_shell();
+        Ok(())
     }
 
     pub fn register(exe: &Path) -> anyhow::Result<()> {
-        let exe = exe.display();
-        let open = format!("\"{exe}\" \"%1\"");
-        let icon = format!("\"{exe}\",0");
-
-        set("magnet", None, "URL:Magnet link")?;
-        set("magnet", Some("URL Protocol"), "")?;
-        set(r"magnet\DefaultIcon", None, &icon)?;
-        set(r"magnet\shell\open\command", None, &open)?;
-
-        set("Riptide.Torrent", None, "Torrent file")?;
-        set(r"Riptide.Torrent\DefaultIcon", None, &icon)?;
-        set(r"Riptide.Torrent\shell\open\command", None, &open)?;
-        set(".torrent", None, "Riptide.Torrent")?;
+        register_capabilities(exe)?;
+        // Fallbacks used when the user never picked anything (no UserChoice yet).
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let (classes, _) = hkcu.create_subkey(r"Software\Classes")?;
+        set(&classes, "magnet", "", "URL:Magnet link")?;
+        set(&classes, "magnet", "URL Protocol", "")?;
+        set(
+            &classes,
+            r"magnet\shell\open\command",
+            "",
+            &open_command(exe),
+        )?;
+        set(&classes, ".torrent", "", TORRENT_PROGID)?;
+        notify_shell();
+        // Let the user confirm in Windows' own Default apps page, filtered to Riptide.
+        super::open_uri("ms-settings:defaultapps?registeredAppUser=Riptide")?;
         Ok(())
     }
 
     pub fn is_registered(exe: &Path) -> bool {
-        let key = format!(r"{CLASSES}\magnet\shell\open\command");
-        reg(&["query", &key, "/ve"]).is_ok_and(|out| {
-            out.to_lowercase()
-                .contains(&exe.display().to_string().to_lowercase())
-        })
+        let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+        let choice =
+            r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\magnet\UserChoice";
+        if let Ok(key) = hkcu.open_subkey(choice) {
+            return key
+                .get_value::<String, _>("ProgId")
+                .is_ok_and(|p| p == MAGNET_PROGID);
+        }
+        hkcu.open_subkey(r"Software\Classes\magnet\shell\open\command")
+            .and_then(|k| k.get_value::<String, _>(""))
+            .is_ok_and(|cmd| {
+                cmd.to_lowercase()
+                    .contains(&exe.display().to_string().to_lowercase())
+            })
+    }
+
+    /// Tells Explorer that associations changed so "Open with" refreshes.
+    fn notify_shell() {
+        use windows_sys::Win32::UI::Shell::{SHCNE_ASSOCCHANGED, SHCNF_IDLIST, SHChangeNotify};
+        // SAFETY: SHCNE_ASSOCCHANGED takes no item pointers.
+        unsafe {
+            SHChangeNotify(
+                SHCNE_ASSOCCHANGED as i32,
+                SHCNF_IDLIST,
+                std::ptr::null(),
+                std::ptr::null(),
+            )
+        };
     }
 }
 
