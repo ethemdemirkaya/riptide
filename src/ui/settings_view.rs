@@ -35,7 +35,7 @@ impl App {
 
         // Leave room for the title and buttons; the sections scroll if needed.
         let max_height = (ctx.content_rect().height() - 200.0).max(200.0);
-        let modal = egui::Modal::new(egui::Id::unique("settings")).show(ctx, |ui| {
+        let modal = widgets::modal(ctx, "settings").show(ctx, |ui| {
             ui.set_width(520.0);
             ui.heading(s.settings);
             ui.add_space(18.0);
@@ -138,7 +138,7 @@ impl App {
                     });
                 });
             ui.add_space(10.0);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            widgets::footer(ui, |ui| {
                 if widgets::button(ui, None, s.save, true).clicked() {
                     save = true;
                 }

@@ -290,6 +290,13 @@ fn screenshots() {
             std::sync::Arc::new(preview),
         ));
     });
+    render("add-empty", Lang::Tr, |app| {
+        app.add_dialog = Some(super::AddDialog::empty(&app.settings));
+    });
+    render("remove", Lang::En, |app| {
+        app.selected = [4].into();
+        app.ask_remove(false);
+    });
     render("settings", Lang::En, |app| {
         app.settings_view = Some(super::SettingsView::new(&app.settings));
     });
